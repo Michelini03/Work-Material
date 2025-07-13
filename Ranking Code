@@ -1,0 +1,94 @@
+import os
+import win32com.client
+
+# === Define Cm conversion ===
+def Cm(cm):
+    return int(cm * 360000)  # 1 cm = 360,000 EMUs
+
+def CmToPoints(cm):
+    return cm * 28.3465
+
+# === PATHS ===
+excel_path = #excel path
+ppt_path = #ppt path
+output_path = #output ppt
+logo_folder = #image folder
+
+# === Open Excel ===
+excel = win32com.client.Dispatch("Excel.Application")
+excel.Visible = False
+wb = excel.Workbooks.Open(excel_path)
+ws = wb.Sheets()  # use sheet number on a 1-based index
+
+# === Read 5 rankings (B28:C32) ===
+data = []
+for row in range(28, 33):  # Rows 28 to 32
+    operator = ws.Cells(row, 2).Value  # Column B
+    number = ws.Cells(row, 3).Value    # Column C
+    data.append((operator, number))
+
+wb.Close(False)
+excel.Quit()
+
+# === Open PowerPoint ===
+ppt = win32com.client.Dispatch("PowerPoint.Application")
+ppt.Visible = True
+presentation = ppt.Presentations.Open(output_path) #set to ppt_path if current monthly report does not exist
+slide = presentation.Slides(5)  # Slide 5 (index starts at 1)
+
+for i, (operator, number) in enumerate(data):
+    number_shape_name = f"Rectangle {i + 1}"   # Rectangles 1–5 for numbers
+    image_box_name = f"Rectangle {i + 6}"      # Rectangles 6–10 for logo placement
+
+    # === Place number ===
+    try:
+        number_shape = slide.Shapes(number_shape_name)
+        if isinstance(number, float) and number.is_integer():
+            number_text = str(int(number))
+        else:
+            number_text = str(number)
+        number_shape.TextFrame.TextRange.Text = number_text
+    except Exception as e:
+        print(f"Error setting number in {number_shape_name}: {e}")
+    
+    # === Place and align logo ===
+    try:
+        image_shape = slide.Shapes(image_box_name)
+        logo_path = os.path.join(logo_folder, f"{operator.lower()}.png")
+
+        if os.path.exists(logo_path):
+            # Get the placeholder box position and size
+            left = image_shape.Left
+            top = image_shape.Top
+            width = image_shape.Width
+            height = image_shape.Height
+
+            # Insert and scale logo
+            logo = slide.Shapes.AddPicture(
+                logo_path,
+                LinkToFile=False,
+                SaveWithDocument=True,
+                Left=left,
+                Top=top,
+                Width=-1,
+                Height=-1
+            )
+
+            # Lock aspect ratio and resize
+            logo.LockAspectRatio = True
+            logo.Width = width * 0.75  # Resize to fit inside box
+            logo.Top = top + (height - logo.Height) / 2
+            logo.Left = left + (width - logo.Width) / 2
+
+        else:
+            print(f"Logo not found for '{operator}' → expected at: {logo_path}")
+
+    except Exception as e:
+        print(f"Error placing logo in {image_box_name}: {e}")
+
+# === Save & Close ===
+presentation.SaveAs(output_path)
+presentation.Close()
+ppt.Quit()
+
+print("✅ Done! Output saved at:", output_path)
