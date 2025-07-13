@@ -1,0 +1,48 @@
+import shutil
+import win32com.client
+from IPython.display import FileLink
+
+# === Define Cm conversion ===
+def Cm(cm):
+    return int(cm * 360000)  # 1 cm = 360,000 EMUs
+
+def CmToPoints(cm):
+    return cm * 28.3465
+
+# === INPUTS ===
+excel_path = #path of XLS file
+template_path = #path of PPT template
+output_path = #new file which is created
+
+# === Step 1: Duplicate the template ===
+shutil.copy(template_path, output_path)
+
+# === Step 2: Open Excel and copy the chart ===
+excel = win32com.client.Dispatch("Excel.Application")
+excel.Visible = False
+wb = excel.Workbooks.Open(excel_path)
+
+ws = wb.Sheets() #sheet number where the graph is in, starting from 1
+chart = ws.ChartObjects("") #name of graph in sheet (ALWAYS NAME IT FOR COMFORT)
+
+chart.Width = CmToPoints()     # cm width in points
+chart.Height = CmToPoints()   # cm height in points
+
+chart.Copy()  # Now copy resized chart
+
+# === Step 3: Open the duplicated PPT and paste the chart ===
+ppt = win32com.client.Dispatch("PowerPoint.Application")
+ppt.Visible = True
+presentation = ppt.Presentations.Open(output_path)
+
+slide = presentation.Slides[]  # slide selection on a 0-based index i.e. slide 4 is 5
+shape = slide.Shapes.Paste()[0]
+
+shape.Left = CmToPoints()    # cm from left margin
+shape.Top = CmToPoints()   # cm from top margin
+
+presentation.Save()
+presentation.Close()
+ppt.Quit()
+wb.Close(False)
+excel.Quit()
